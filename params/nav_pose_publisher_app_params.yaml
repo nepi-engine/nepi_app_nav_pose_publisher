@@ -6,6 +6,8 @@ APP_DICT:
   config_file: app_nav_pose_publisher.yaml
   app_file: nav_pose_publisher_node.py
   node_name: nav_pose_publisher_app
+  license_type: Numurus Software License
+  license_link: https://numurus.com/wp-content/uploads/Numurus-Software-License-Terms.pdf
 RUI_DICT:
   rui_menu_name: None
   rui_files:

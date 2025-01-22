@@ -27,10 +27,10 @@ import sys
 import tf
 import yaml
 
-from nepi_edge_sdk_base import nepi_ros
-from nepi_edge_sdk_base import nepi_save
-from nepi_edge_sdk_base import nepi_msg
-from nepi_edge_sdk_base import nepi_nav
+from nepi_sdk import nepi_ros
+from nepi_sdk import nepi_save
+from nepi_sdk import nepi_msg
+from nepi_sdk import nepi_nav
 
 from std_msgs.msg import Bool, String, Float32, Header
 from nav_msgs.msg import Odometry
@@ -40,8 +40,8 @@ from nepi_ros_interfaces.msg import NavPose, NavPosePub
 from nepi_ros_interfaces.srv import NavPoseQuery, NavPoseQueryRequest
 from nepi_ros_interfaces.srv import NavPosePubQuery, NavPosePubQueryResponse
 
-from nepi_edge_sdk_base.save_data_if import SaveDataIF
-from nepi_edge_sdk_base.save_cfg_if import SaveCfgIF
+from nepi_sdk.save_data_if import SaveDataIF
+from nepi_sdk.save_cfg_if import SaveCfgIF
 
 #########################################
 # Node Class

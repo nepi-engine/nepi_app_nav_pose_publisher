@@ -32,13 +32,13 @@ from nepi_sdk import nepi_save
 from nepi_sdk import nepi_msg
 from nepi_sdk import nepi_nav
 
-from std_msgs.msg import Bool, String, Float32, Header
+from std_msgs.msg import Empty, Bool, String, Float32, Header
+#from nepi_ros_interfaces.msg import SystemStatus
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3, PoseStamped
-from nepi_ros_interfaces.msg import NavPose, NavPosePub
+from nepi_ros_interfaces.msg import NavPose, NavPoseData
 from nepi_ros_interfaces.srv import NavPoseQuery, NavPoseQueryRequest
-from nepi_ros_interfaces.srv import NavPosePubQuery, NavPosePubQueryResponse
 
 from nepi_sdk.save_data_if import SaveDataIF
 from nepi_sdk.save_cfg_if import SaveCfgIF
@@ -49,6 +49,8 @@ from nepi_sdk.save_cfg_if import SaveCfgIF
 
 
 class NavPosePublisher(object):
+
+  SUB_PUB_NODE_NAME = "nav_pose_mgr"
 
   NAVPOSE_PUB_RATE_OPTIONS = [1.0,2.0] 
   NAVPOSE_3D_FRAME_OPTIONS = ['ENU','NED']
@@ -61,7 +63,7 @@ class NavPosePublisher(object):
   data_products = ['navpose']
   #######################
   ### Node Initialization
-  DEFAULT_NODE_NAME = "nav_pose_publisher_app" # Can be overwitten by luanch command
+  DEFAULT_NODE_NAME = "nav_pose_pub" # Can be overwitten by luanch command
   def __init__(self):
     #### APP NODE INIT SETUP ####
     nepi_ros.init_node(name= self.DEFAULT_NODE_NAME)
@@ -70,16 +72,35 @@ class NavPosePublisher(object):
     nepi_msg.createMsgPublishers(self)
     nepi_msg.publishMsgInfo(self,"Starting Initialization Processes")
     ##############################
+    '''
+    # Wait for NEPI core managers to start
+    system_status_topic = os.path.join(self.base_namespace,'system_status')
+    nepi_msg.publishMsgInfo(self,"Waiting for System Mgr Status")
+    nepi_ros.wait_for_topic(system_status_topic)
+    self.sys_status = None
+    sys_status_sub = rospy.Subscriber(system_status_topic, SystemStatus, self.systemStatusCb, queue_size = 1)
+    nepi_msg.publishMsgInfo(self,"Waiting for System Mgr Status to publish")
+    while(self.sys_status is None):
+      nepi_ros.sleep(1)
+    sys_status_sub.unregister()
+    
+    config_status_topic = os.path.join(self.base_namespace,'config_mgr/status')
+    nepi_msg.publishMsgInfo(self,"Waiting for Config Mgr Status")
+    nepi_ros.wait_for_topic(config_status_topic)
+    self.cfg_status = None
+    cfg_status_sub = rospy.Subscriber(config_status_topic, Empty, self.configStatusCb, queue_size = 1)
+    nepi_msg.publishMsgInfo(self,"Waiting for Config Mgr Status to publish")
+    while(self.cfg_status is None):
+      nepi_ros.sleep(1)
+    cfg_status_sub.unregister()
+    ##############################
+    '''
 
+    self.sub_pub_namespace = os.path.join(self.base_namespace, self.SUB_PUB_NODE_NAME)
 
     ## Initialize Class Variables
     self.last_navpose = None
-    ## Define Class Services Messages
-    self.navpose_pub_options_report = NavPosePubQueryResponse()
-    self.navpose_pub_options_report.pub_rate_min_max = self.NAVPOSE_PUB_RATE_OPTIONS
-    self.navpose_pub_options_report.frame_3d_options = self.NAVPOSE_3D_FRAME_OPTIONS
-    self.navpose_pub_options_report.frame_alt_options = self.NAVPOSE_ALT_FRAME_OPTIONS
-    rospy.Service('~navpose_pub_options_query', NavPosePubQuery, self.provide_navpose_capabilities)
+
     # NavPose Heading, Orientation, Location, and Position Publish Topics
     ## Define Class Services Calls
     NEPI_BASE_NAMESPACE = nepi_ros.get_base_namespace()
@@ -87,15 +108,18 @@ class NavPosePublisher(object):
     nepi_msg.publishMsgInfo(self,"looking for nav_pose service at " + self.NAVPOSE_SERVICE_NAME)
     rospy.wait_for_service(self.NAVPOSE_SERVICE_NAME)
     nepi_msg.publishMsgInfo(self,"found nav_pose service")
+    self.get_navpose_service = rospy.ServiceProxy(self.NAVPOSE_SERVICE_NAME, NavPoseQuery)
  
     ## Create Class Publishers
-    self.navpose_pub = rospy.Publisher("~navpose", NavPosePub, queue_size=1, latch = True)
+    self.navpose_pub = rospy.Publisher(self.sub_pub_namespace + '/navpose', NavPoseData, queue_size=1, latch = True)
 
     ## Start Class Subscribers
-    rospy.Subscriber('~set_pub_rate', Float32, self.setPublishRateCb, queue_size=1) # start local callback
-    rospy.Subscriber('~set_3d_frame', String, self.set3dFrameCb, queue_size=1) # start local callback
-    rospy.Subscriber('~set_alt_frame', String, self.setAltFrameCb, queue_size=1) # start local callback
+    rospy.Subscriber(self.sub_pub_namespace + '/set_pub_rate', Float32, self.setPublishRateCb, queue_size=1) # start local callback
+    rospy.Subscriber(self.sub_pub_namespace + '/set_3d_frame', String, self.set3dFrameCb, queue_size=1) # start local callback
+    rospy.Subscriber(self.sub_pub_namespace + '/set_alt_frame', String, self.setAltFrameCb, queue_size=1) # start local callback
     ## Set up save and config interfaces
+
+    time.sleep(1)
 
     factory_data_rates = {}
     for d in self.data_products:
@@ -114,6 +138,16 @@ class NavPosePublisher(object):
     nepi_msg.publishMsgInfo(self,"Initialization Complete")
     nepi_ros.spin()
 
+  '''
+  #######################
+  # Wait for System and Config Statuses Callbacks
+  def systemStatusCb(self,msg):
+    self.sys_status = msg
+
+  def configStatusCb(self,msg):
+    self.cfg_status = True
+  '''
+  
   #######################
   ### Node Methods
 
@@ -175,10 +209,9 @@ class NavPosePublisher(object):
     set_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.init_alt_frame)
     # Get current NEPI NavPose data from NEPI ROS nav_pose_query service call
     current_navpose = None
+    nav_pose_response = None
     try:
-      nav_pose_response = None
-      get_navpose_service = rospy.ServiceProxy(self.NAVPOSE_SERVICE_NAME, NavPoseQuery)
-      nav_pose_response = get_navpose_service(NavPoseQueryRequest())
+      nav_pose_response = self.get_navpose_service(NavPoseQueryRequest())
       current_navpose = nav_pose_response.nav_pose
     except rospy.ServiceException as e:
       nepi_msg.publishMsgInfo(self,"Service call failed: " + str(e))
@@ -234,7 +267,7 @@ class NavPosePublisher(object):
         # Get current geoid heihgt
         current_geoid_height =  nepi_nav.get_navpose_geoid_height(nav_pose_response)
         # Publish new current navpose data
-        current_navpose = NavPosePub()
+        current_navpose = NavPoseData()
         current_navpose.header.stamp = ros_timestamp
         current_navpose.set_pub_rate = set_pub_rate
         current_navpose.set_3d_frame = set_3d_frame

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>nepi_app_navpose_publisher</name>
+  <name>nepi_app_nav_pose</name>
   <version>0.0.0</version>
   <description>The nav pose publisher package</description>
 

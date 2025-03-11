@@ -130,7 +130,7 @@ class NavPosePublisher(object):
                                  paramsModifiedCallback=self.updateFromParamServer)
 
     # Start navpose data publishers
-    nepi_ros.timer(nepi_ros.duration(1), self.navpose_get_publish_callback, oneshot = True)
+    nepi_ros.timer(nepi_ros.ros_ros_ros_duration(1), self.navpose_get_publish_callback, oneshot = True)
 
     ## Initialize From Param Server
     self.initParamServerValues(do_updates = True)
@@ -203,7 +203,7 @@ class NavPosePublisher(object):
 
   ### Setup a regular background navpose get and publish timer callback
   def navpose_get_publish_callback(self,timer):
-    ros_timestamp = nepi_ros.time_now()
+    ros_timestamp = nepi_ros.ros_ros_time_now()
     set_pub_rate = nepi_ros.get_param(self,"~pub_rate",self.init_pub_rate)
     set_3d_frame = nepi_ros.get_param(self,"~frame_3d",self.init_3d_frame)
     set_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.init_alt_frame)
@@ -307,7 +307,7 @@ class NavPosePublisher(object):
     if sleep_time < 0:
       sleep_time = 0
     nepi_ros.sleep(sleep_time)
-    nepi_ros.timer(nepi_ros.duration(1), self.navpose_get_publish_callback, oneshot = True)
+    nepi_ros.timer(nepi_ros.ros_ros_ros_duration(1), self.navpose_get_publish_callback, oneshot = True)
 
 
 

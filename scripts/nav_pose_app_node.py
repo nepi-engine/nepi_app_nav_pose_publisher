@@ -28,10 +28,13 @@ import yaml
 from nepi_ros_interfaces.msg import NavPoseData
 
 from nepi_sdk import nepi_ros
+from nepi_sdk import nepi_utils
 from nepi_sdk import nepi_save
 from nepi_sdk import nepi_msg
 from nepi_sdk import nepi_nav
 
+from nepi_api.node_if import NodeClassIF
+from nepi_api.sys_if_msg import MsgIF
 from nepi_api.connect_mgr_if_navpose import ConnectMgrNavPoseIF
 from nepi_api.sys_if_save_data import SaveDataIF
 from nepi_api.sys_if_save_cfg import SaveCfgIF
@@ -60,11 +63,17 @@ class NavPosePublisher(object):
   def __init__(self):
     #### APP NODE INIT SETUP ####
     nepi_ros.init_node(name= self.DEFAULT_NODE_NAME)
-    self.node_name = nepi_ros.get_node_name()
+    self.class_name = type(self).__name__
     self.base_namespace = nepi_ros.get_base_namespace()
-    nepi_msg.createMsgPublishers(self)
-    nepi_msg.publishMsgInfo(self,"Starting Initialization Processes")
-    ##############################
+    self.node_name = nepi_ros.get_node_name()
+    self.node_namespace = nepi_ros.get_node_namespace()
+
+    ##############################  
+    # Create Msg Class
+    self.msg_if = MsgIF(log_name = self.class_name)
+    self.msg_if.pub_info("Starting IF Initialization Processes")
+
+    ##############################     
     # Init Param Server
     self.initCb(do_updates = False)
 
@@ -109,7 +118,7 @@ class NavPosePublisher(object):
 
     ##############################
     ## Initiation Complete
-    nepi_msg.publishMsgInfo(self,"Initialization Complete")
+    self.msg_if.pub_info("Initialization Complete")
     nepi_ros.spin()
 
   
@@ -145,7 +154,7 @@ class NavPosePublisher(object):
 
 
   def initCb(self,do_updates = False):
-      nepi_msg.publishMsgInfo(self,"Setting init values to param values")
+      self.msg_if.pub_info("Setting init values to param values")
       self.init_pub_rate = nepi_ros.get_param(self,"~pub_rate",self.FACTORY_PUB_RATE_HZ)
       self.init_3d_frame = nepi_ros.get_param(self,"~frame_3d",self.FACTORY_3D_FRAME)
       self.init_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.FACTORY_ALT_FRAME)
@@ -170,13 +179,13 @@ class NavPosePublisher(object):
     try:
       navpose_response = self.get_navpose_service(NavPoseQueryRequest())
     except rospy.ServiceException as e:
-      nepi_msg.publishMsgInfo(self,"Service call failed: " + str(e))
+      self.msg_if.pub_info("Service call failed: " + str(e))
     if navpose_response != None:
       if self.last_navpose != navpose_response:
         npdata_msg = nepi_nav.convert_navpose_resp2data_msg(navpose_response,frame_3d = set_3d_frame, frame_alt = set_alt_frame)
         npdata_dict = nepi_nav.convert_navposedata_msg2dict(npdata_dict)
         if npdata_dict is None or npdata_msg is None:
-          nepi_msg.publishMsgWarn(self,"Failed to convert navpose response: " + str(navpose_response))
+          self.msg_if.pub_warn("Failed to convert navpose response: " + str(navpose_response))
         else:
           if not rospy.is_shutdown():
             self.navpose_pub.publish(npdata_msg)
@@ -194,7 +203,7 @@ class NavPosePublisher(object):
   # Node Cleanup Function
   
   def cleanup_actions(self):
-    nepi_msg.publishMsgInfo(self,"Shutting down: Executing script cleanup actions")
+    self.msg_if.pub_info("Shutting down: Executing script cleanup actions")
 
 
 #########################################

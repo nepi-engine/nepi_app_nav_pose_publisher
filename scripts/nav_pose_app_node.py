@@ -16,7 +16,7 @@
 # - mailto:nepi@numurus.com
 
 import os
-import rospy
+
 import numpy as np
 import math
 import time
@@ -73,6 +73,11 @@ class NavPosePublisher(object):
     self.msg_if = MsgIF(log_name = self.class_name)
     self.msg_if.pub_info("Starting IF Initialization Processes")
 
+
+    ##############################
+    # Initialize Class Variables
+    self.sub_pub_namespace = os.path.join(self.base_namespace, self.SUB_PUB_NODE_NAME)
+
     ##############################     
     # Init Param Server
     self.initCb(do_updates = False)
@@ -86,20 +91,82 @@ class NavPosePublisher(object):
 
     ##############################
     ### Setup Node
-    self.sub_pub_namespace = os.path.join(self.base_namespace, self.SUB_PUB_NODE_NAME)
 
-    ## Create Class Publishers
-    self.navpose_pub = rospy.Publisher('~navpose', NavPoseData, queue_size=1, latch = True)
-    time.sleep(1)
+    # Configs Config Dict ####################
+    self.CFGS_DICT = {
+            'init_callback': self.initCb,
+            'reset_callback': self.resetCb,
+            'factory_reset_callback': self.factoryResetCb,
+            'init_configs': True,
+            'namespace': self.node_namespace
+    }
 
-    ## Start Class Subscribers
-    rospy.Subscriber('~set_pub_rate', Float32, self.setPublishRateCb, queue_size=1) # start local callback
-    rospy.Subscriber('~set_3d_frame', String, self.set3dFrameCb, queue_size=1) # start local callback
-    rospy.Subscriber('~set_alt_frame', String, self.setAltFrameCb, queue_size=1) # start local callback
+    # Params Config Dict ####################
+    self.PARAMS_DICT = {
+        'pub_rate': {
+            'namespace': self.node_namespace,
+            'factory_val': self.FACTORY_PUB_RATE_HZ
+        },
+        'frame_3d': {
+            'namespace': self.node_namespace,
+            'factory_val': self.FACTORY_3D_FRAME
+        },
+        'frame_alt': {
+            'namespace': self.node_namespace,
+            'factory_val': self.FACTORY_ALT_FRAME
+        },
+    }
 
-    self.save_cfg_if = SaveCfgIF(initCb=self.initCb, resetCb=self.resetCb,  factoryResetCb=self.factoryResetCb)
-    ready = self.save_cfg_if.wait_for_ready()
+    # Publishers Config Dict ####################
+    self.PUBS_DICT = {
+        'navpose_pub': {
+            'namespace': self.node_namespace,
+            'topic': 'navpose',
+            'msg': NavPoseData,
+            'qsize': 1,
+            'latch': True
+        }
+    }
 
+    # Subscribers Config Dict ####################
+    self.SUBS_DICT = {
+        'pub_rate': {
+            'namespace': self.node_namespace,
+            'topic': 'set_pub_rate',
+            'msg': Float32,
+            'qsize': 1,
+            'callback': self.setPublishRateCb, 
+            'callback_args': ()
+        },
+        '3d_frame': {
+            'namespace': self.node_namespace,
+            'topic': 'set_3d_frame',
+            'msg': String,
+            'qsize': 1,
+            'callback': self.set3dFrameCb, 
+            'callback_args': ()
+        },
+        'alt_frame': {
+            'namespace': self.node_namespace,
+            'topic': 'set_alt_frame',
+            'msg': String,
+            'qsize': 1,
+            'callback': self.setAltFrameCb, 
+            'callback_args': ()
+        },
+    }
+
+
+    # Create Node Class ####################
+    self.node_if = NodeClassIF(self,
+                    configs_dict = self.CFGS_DICT,
+                    params_dict = self.PARAMS_DICT,
+                    pubs_dict = self.PUBS_DICT,
+                    subs_dict = self.SUBS_DICT,
+                    log_class_name = True
+    )
+
+    ready = self.node_if.wait_for_ready()
 
     ##############################
     ## Initialize From Param Server
@@ -126,9 +193,9 @@ class NavPosePublisher(object):
   ### Node Methods
 
   def provide_navpose_capabilities(self, _):
-      self.navpose_pub_options_report.set_pub_rate = nepi_ros.get_param(self,"~pub_rate",self.init_pub_rate)
-      self.navpose_pub_options_report.set_3d_frame = nepi_ros.get_param(self,"~frame_3d",self.init_3d_frame)
-      self.navpose_pub_options_report.set_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.init_alt_frame)
+      self.navpose_pub_options_report.set_pub_rate = self.node_if.get_param('pub_rate')
+      self.navpose_pub_options_report.set_3d_frame = self.node_if.get_param('frame_3d')
+      self.navpose_pub_options_report.set_alt_frame = self.node_if.get_param('frame_alt')
       return self.navpose_pub_options_report 
 
   def setPublishRateCb(self,msg):
@@ -139,46 +206,42 @@ class NavPosePublisher(object):
       rate = min
     if rate > max:
       rate = max
-    nepi_ros.set_param(self,"~pub_rate",rate)
+    self.node_if.set_param('pub_rate',rate)
 
   def set3dFrameCb(self,msg):
     frame = msg.data
     if frame in self.NAVPOSE_3D_FRAME_OPTIONS:
-      nepi_ros.set_param(self,"~frame_3d",frame)
+      self.node_if.set_param('frame_3d',frame)
 
   def setAltFrameCb(self,msg):
     frame = msg.data
     if frame in self.NAVPOSE_ALT_FRAME_OPTIONS:
-      nepi_ros.set_param(self,"~frame_alt",frame)
+      self.node_if.set_param('frame_alt',frame)
 
 
 
   def initCb(self,do_updates = False):
-      self.msg_if.pub_info("Setting init values to param values")
-      self.init_pub_rate = nepi_ros.get_param(self,"~pub_rate",self.FACTORY_PUB_RATE_HZ)
-      self.init_3d_frame = nepi_ros.get_param(self,"~frame_3d",self.FACTORY_3D_FRAME)
-      self.init_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.FACTORY_ALT_FRAME)
       if do_updates == True:
         self.resetCb(do_updates)
 
   def resetCb(self,do_updates = False):
-      nepi_ros.set_param(self,"~pub_rate",self.init_pub_rate)
-      nepi_ros.set_param(self,"~frame_3d",self.init_3d_frame)
-      nepi_ros.set_param(self,"~frame_alt",self.init_alt_frame)
+      pass
       
+  def factoryResetCb(self,do_updates = False):
+      pass
 
 
   ### Setup a regular background navpose get and publish timer callback
   def navpose_get_publish_callback(self,timer):
     ros_timestamp = nepi_ros.ros_time_now()
-    set_pub_rate = nepi_ros.get_param(self,"~pub_rate",self.init_pub_rate)
-    set_3d_frame = nepi_ros.get_param(self,"~frame_3d",self.init_3d_frame)
-    set_alt_frame = nepi_ros.get_param(self,"~frame_alt",self.init_alt_frame)
+    set_pub_rate = self.node_if.get_param('pub_rate')
+    set_3d_frame = self.node_if.get_param('frame_3d')
+    set_alt_frame = self.node_if.get_param('frame_alt')
     # Get current NEPI NavPose data from NEPI ROS nav_pose_query service call
     navpose_response = None
     try:
       navpose_response = self.get_navpose_service(NavPoseQueryRequest())
-    except rospy.ServiceException as e:
+    except Exception as e:
       self.msg_if.pub_info("Service call failed: " + str(e))
     if navpose_response != None:
       if self.last_navpose != navpose_response:
@@ -187,8 +250,8 @@ class NavPosePublisher(object):
         if npdata_dict is None or npdata_msg is None:
           self.msg_if.pub_warn("Failed to convert navpose response: " + str(navpose_response))
         else:
-          if not rospy.is_shutdown():
-            self.navpose_pub.publish(npdata_msg)
+          if not self.nepi_ros.wait_for_node():
+            self.node_if.publish_pub('navpose_pub', npdata_msg)
           nepi_save.save_dict2file(self,'navpose',npdata_dict,ros_timestamp)
 
     # Setup nex update check

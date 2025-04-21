@@ -16,7 +16,6 @@
 # - mailto:nepi@numurus.com
 
 import os
-
 import numpy as np
 import math
 import time
@@ -34,7 +33,7 @@ from nepi_sdk import nepi_msg
 from nepi_sdk import nepi_nav
 
 from nepi_api.node_if import NodeClassIF
-from nepi_api.sys_if_msg import MsgIF
+from nepi_api.messages_if import MsgIF
 from nepi_api.connect_mgr_if_navpose import ConnectMgrNavPoseIF
 from nepi_api.sys_if_save_data import SaveDataIF
 from nepi_api.sys_if_save_cfg import SaveCfgIF
@@ -158,7 +157,7 @@ class NavPosePublisher(object):
 
 
     # Create Node Class ####################
-    self.node_if = NodeClassIF(self,
+    self.node_if = NodeClassIF(
                     configs_dict = self.CFGS_DICT,
                     params_dict = self.PARAMS_DICT,
                     pubs_dict = self.PUBS_DICT,

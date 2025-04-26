@@ -28,8 +28,6 @@ from nepi_ros_interfaces.msg import NavPoseData
 
 from nepi_sdk import nepi_ros
 from nepi_sdk import nepi_utils
-from nepi_sdk import nepi_save
-from nepi_sdk import nepi_msg
 from nepi_sdk import nepi_nav
 
 from nepi_api.node_if import NodeClassIF
@@ -53,7 +51,7 @@ class NavPosePublisher(object):
   FACTORY_3D_FRAME = 'ENU'
   FACTORY_ALT_FRAME = 'WGS84'
 
-  data_products = ['navpose']
+  data_products_list = ['navpose']
   last_navpose = None
 
   #######################
@@ -76,10 +74,6 @@ class NavPosePublisher(object):
     ##############################
     # Initialize Class Variables
     self.sub_pub_namespace = os.path.join(self.base_namespace, self.SUB_PUB_NODE_NAME)
-
-    ##############################     
-    # Init Param Server
-    self.initCb(do_updates = False)
 
 
     ##############################
@@ -174,9 +168,9 @@ class NavPosePublisher(object):
     ##############################
     # Set up save data services ########################################################
     factory_data_rates = {}
-    for d in self.data_products:
+    for d in self.data_products_list:
         factory_data_rates[d] = [1.0, 0.0, 100.0] # Default to 0Hz save rate, set last save = 0.0, max rate = 100.0Hz
-    self.save_data_if = SaveDataIF(data_product_names = self.data_products, factory_data_rate_dict = factory_data_rates)
+    self.save_data_if = SaveDataIF(data_product_names = self.data_products_list, factory_data_rate_dict = factory_data_rates)
 
     ##############################
     # Start Node Processes
@@ -245,13 +239,13 @@ class NavPosePublisher(object):
         else:
           if not self.nepi_ros.wait_for_node():
             self.node_if.publish_pub('navpose_pub', npdata_msg)
-          nepi_save.save_dict2file(self,'navpose',npdata_dict,ros_timestamp)
+          self.save_data_if.save_dict2file('navpose',npdata_dict,ros_timestamp)
 
     # Setup nex update check
     self.last_navpose = navpose_response
 
     delay = float(1.0)/set_pub_rate
-    nepi_ros.timer(nepi_ros.ros_duration(delay), self.navpose_get_publish_callback, oneshot = True)
+    nepi_ros.timer(delay, self.navpose_get_publish_callback, oneshot = True)
 
 
 

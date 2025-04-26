@@ -191,12 +191,6 @@ class NavPosePublisher(object):
   #######################
   ### Node Methods
 
-  def provide_navpose_capabilities(self, _):
-      self.navpose_pub_options_report.set_pub_rate = self.node_if.get_param('pub_rate')
-      self.navpose_pub_options_report.set_3d_frame = self.node_if.get_param('frame_3d')
-      self.navpose_pub_options_report.set_alt_frame = self.node_if.get_param('frame_alt')
-      return self.navpose_pub_options_report 
-
   def setPublishRateCb(self,msg):
     rate = msg.data
     min = self.NAVPOSE_PUB_RATE_OPTIONS[0]
